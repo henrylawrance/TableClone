@@ -94,7 +94,7 @@ function Global:Copy-Table {
                 "String" { $($Line[$Column_Name]).replace("'","''") }
                 default { $Line[$Column_Name] }
             }
-            $InsertQuery += "`'$value`'"
+            $InsertQuery += "`'$($value)`'"
             if(([array]::IndexOf($Columns.COLUMN_NAME, $Column_Name))+1 -lt $Columns.COLUMN_NAME.Count) {
                 $InsertQuery += ","
             }
