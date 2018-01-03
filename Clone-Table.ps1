@@ -1,4 +1,0 @@
-function Clone-Table ()
-{
-    
-}
