@@ -1,4 +1,4 @@
-Import-Module ./modules/invoke-oracmd.psm1
+
 function Global:Copy-Table {
     <#
 .SYNOPSIS
@@ -34,19 +34,32 @@ function Global:Copy-Table {
         [parameter(Mandatory = $false)][Int] $RowLimit
 
     )
+    # Load Invoke-Oracmd if not already loaded
+    if(!((Get-Module).Name -contains "invoke-oracmd")) {
+        Write-Verbose "LOADING Invoke-Oracmd"
+        Import-Module ./modules/invoke-oracmd.psm1
+    }
+    # Remove old Output File (include the date in the output name if you want to save these, see example 3)
     if (Test-Path $OutputFile) {
+        Write-Verbose "REMOVING OLD $OutputFile"
         Remove-Item $OutputFile
     }
+    # Get Table Info from Oracle
     $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -Prod -OutputDataSet).Tables
+    # Verify Table Exists in Banner
     if ($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
+    # Allow limiting of Rows for testing
     if ($RowLimit) {
+        Write-Warning "ROWS LIMITED TO $RowLimit"
         $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= $RowLimit" -Prod -OutputDataSet
     }
     else {
         $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName)" -Prod -OutputDataSet
     }
+    # Check if table exists in SQL
     $TableCheck = Invoke-Sqlcmd -Query "select * from sys.tables where name = '$($DestinationTableName)'" -ServerInstance $DestinationServerName -Database $DestinationDatabaseName
     if ($TableCheck.name.count -eq 0) { 
+        # If it doesn't exist, create it
         Write-Verbose "CREATE TABLE [dbo].[$DestinationTableName]" 
         $CreateQuery = "CREATE TABLE [dbo].[$DestinationTableName](`n"
         Foreach ($Column in $Columns) {
@@ -78,7 +91,9 @@ function Global:Copy-Table {
         $CreateQuery | out-file -enc ascii $OutputFile -Append
     }
     else {
+        # Table already exists, check flag to continue or not
         if ($OverwriteExisting.IsPresent) {
+            # Delete all the data if flag is set
             Write-Verbose "TRUNCATE TABLE [dbo].[$DestinationTableName]"
             $DeleteQuery = "TRUNCATE TABLE [dbo].[$DestinationTableName]"
             $DeleteQuery | out-file -enc ascii $OutputFile -Append
@@ -88,12 +103,14 @@ function Global:Copy-Table {
         }
     }
 
+    # Build Inserts for pushing data
     Write-Verbose "GENERATING INSERTS INTO [dbo].[$DestinationTableName]"
     ForEach ($Line in $OraData.Tables) {
         $InsertQuery = "INSERT INTO [dbo].[$DestinationTableName] ("
         $InsertQuery += $Columns.COLUMN_NAME -join ","
         $InsertQuery += ")`n`tVALUES ("
         foreach ($Column_Name in $Columns.COLUMN_NAME) {
+            # Replace apostrophes in names with escaped apostrophe
             $value = switch ($($Line[$Column_Name]).GetType().Name) {
                 "String" { $($Line[$Column_Name]).replace("'", "''") }
                 default { $Line[$Column_Name] }
@@ -107,7 +124,7 @@ function Global:Copy-Table {
         $InsertQuery | out-file -enc ascii $OutputFile -Append
         
     }
-
+    # Check for RunOutput flag, run if set
     switch ($RunOutput.IsPresent) {
         $true {
             Write-Verbose "EXECUTING $OutputFile on $DestinationServerName" 
