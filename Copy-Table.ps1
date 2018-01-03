@@ -35,7 +35,7 @@ function Global:Copy-Table {
     }
     $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -Prod -OutputDataSet).Tables
     if($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
-    $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= 500" -Prod -OutputDataSet
+    $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName)" -Prod -OutputDataSet
     $TableCheck = Invoke-Sqlcmd -Query "select * from sys.tables where name = '$($DestinationTableName)'" -ServerInstance $DestinationServerName -Database $DestinationDatabaseName
     if($TableCheck.name.count -eq 0) { 
         Write-Verbose "CREATE TABLE [dbo].[$DestinationTableName]" 
