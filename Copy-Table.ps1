@@ -8,6 +8,8 @@ function Global:Copy-Table {
     SourceTableName must be provided in all caps. 
     Use -OverwriteExisting switch to delete data and refresh in an existing table. 
     Use -RunOutput to execute SQL script at end. Otherwise, output will be saved to be run later
+    Use -OutputFile "$(Get-date -f 'MMddyy')_update.sql" to generate a daily SQL file
+    Use -LogFile to define a specific error log location
 .EXAMPLE
     Copy-Table -SourceTableName GZRADUS -DestinationTableName GZRADUS -DestinationDatabaseName OUTestData -DestinationServerName ocsql2014 -RunOutput -OverwriteExisting
         - Copy table, overwriting any existing data, execute on SQL server
@@ -31,6 +33,7 @@ function Global:Copy-Table {
         [parameter(Mandatory = $false)][Switch] $OverwriteExisting = $false,
         [parameter(Mandatory = $false)][Switch] $RunOutput = $false,
         [parameter(Mandatory = $false)][String] $OutputFile = ".\output.sql",
+        [parameter(Mandatory = $false)][String] $LogFile = ".\log.rpt",
         [parameter(Mandatory = $false)][Int] $RowLimit
 
     )
@@ -128,7 +131,7 @@ function Global:Copy-Table {
     switch ($RunOutput.IsPresent) {
         $true {
             Write-Verbose "EXECUTING $OutputFile on $DestinationServerName" 
-            Invoke-Sqlcmd -InputFile $OutputFile -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append 
+            Invoke-Sqlcmd -InputFile $OutputFile -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath $LogFile -Append 
         }
     }
     
