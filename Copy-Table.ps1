@@ -13,7 +13,11 @@ function Global:Copy-Table {
         - Copy table, overwriting any existing data, execute on SQL server
 .EXAMPLE        
     Copy-Table -SourceTableName GZRADUS -DestinationTableName TEMPTABLE -DestinationDatabaseName OUData -DestinationServerName ocsql2014 -RunOutput
-        - Create new table but do not overwrite, copy data over, execute on SQL server
+        - Create new table but do not overwrite, copy data over,  execute on SQL server
+.EXAMPLE
+    Copy-Table -SourceTableName GZRADUS -DestinationTableName TEMPTABLE -OutputFile "$(Get-date -f 'MMddyy')_update.sql" -OverwriteExisting -RunOutput
+        - Create or update table, copy and overwrite data, create file of the day to be stored, run output.
+
 #>
     [CmdletBinding()]
     Param(
@@ -23,17 +27,18 @@ function Global:Copy-Table {
         [parameter(Mandatory=$false)][String] $DestinationServerName = "ocsql2014",
         [parameter(Mandatory=$false)][Switch] $OverwriteExisting = $false,
         [parameter(Mandatory=$false)][Switch] $RunOutput = $false,
-        [parameter(Mandatory=$false)][String] $OutputFile = "output.sql"
+        [parameter(Mandatory=$false)][String] $OutputFile = ".\output.sql"
 
     )
     if(Test-Path $OutputFile) {
         Remove-Item $OutputFile
     }
     $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -Prod -OutputDataSet).Tables
-    if($Columns.COLUMN_NAME.count -eq 0) { "Table Name does not exist in Oracle (Check Capitalization)"; Return }
+    if($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
     $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= 500" -Prod -OutputDataSet
     $TableCheck = Invoke-Sqlcmd -Query "select * from sys.tables where name = '$($DestinationTableName)'" -ServerInstance $DestinationServerName -Database $DestinationDatabaseName
-    if($TableCheck.name.count -eq 0) {   
+    if($TableCheck.name.count -eq 0) { 
+        Write-Verbose "CREATE TABLE [dbo].[$DestinationTableName]" 
         $CreateQuery = "CREATE TABLE [dbo].[$DestinationTableName](`n"
         Foreach($Column in $Columns) {
             $data_type = switch($Column.DATA_TYPE) {
@@ -63,14 +68,15 @@ function Global:Copy-Table {
         $CreateQuery | out-file -enc ascii $OutputFile -Append
     } else {
         if($OverwriteExisting.IsPresent) {
+            Write-Verbose "TRUNCATE TABLE $($DestinationTableName)"
             $DeleteQuery = "TRUNCATE TABLE $($DestinationTableName)"
             $DeleteQuery | out-file -enc ascii $OutputFile -Append
         } else {
-            "Table already exists. Use -OverwriteExisting switch to override"; Return
+            Write-Warning "Table already exists. Use -OverwriteExisting switch to override"; Return
         }
     }
 
-    
+    Write-Verbose "GENERATING INSERTS"
     ForEach($Line in $OraData.Tables) {
         $InsertQuery = "INSERT INTO $($DestinationTableName) ("
         $InsertQuery += $Columns.COLUMN_NAME -join ","
@@ -92,7 +98,9 @@ function Global:Copy-Table {
     }
 
     switch($RunOutput.IsPresent) {
-        $true { Invoke-Sqlcmd -InputFile .\output.sql -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append }
+        $true {
+            Write-Verbose "EXECUTING $OutputFile" 
+            Invoke-Sqlcmd -InputFile $OutputFile -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append }
     }
     
 }
