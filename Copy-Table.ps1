@@ -1,5 +1,20 @@
 Import-Module ./modules/invoke-oracmd.psm1
 function Global:Copy-Table {
+<#
+.SYNOPSIS
+    Clone a single table from Banner to a MSSQL server. Will create table if necessary with structure from Oracle. 
+    Performs full refresh of data. 
+    Dates convert to VARCHAR plain text.
+    SourceTableName must be provided in all caps. 
+    Use -OverwriteExisting switch to delete data and refresh in an existing table. 
+    Use -RunOutput to execute SQL script at end. Otherwise, output will be saved to be run later
+.EXAMPLE
+    Copy-Table -SourceTableName GZRADUS -DestinationTableName GZRADUS -DestinationDatabaseName OUTestData -DestinationServerName ocsql2014 -RunOutput -OverwriteExisting
+        - Copy table, overwriting any existing data, execute on SQL server
+.EXAMPLE        
+    Copy-Table -SourceTableName GZRADUS -DestinationTableName TEMPTABLE -DestinationDatabaseName OUData -DestinationServerName ocsql2014 -RunOutput
+        - Create new table but do not overwrite, copy data over, execute on SQL server
+#>
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)][String] $SourceTableName,
@@ -77,8 +92,7 @@ function Global:Copy-Table {
     }
 
     switch($RunOutput.IsPresent) {
-        $true { Invoke-Sqlcmd -InputFile .\output.sql -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt }
+        $true { Invoke-Sqlcmd -InputFile .\output.sql -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append }
     }
     
 }
-#Copy-Table -SourceTableName GZRADUS -DestinationTableName GZRADUS -DestinationDatabaseName OUTestData -DestinationServerName ocsql2014
