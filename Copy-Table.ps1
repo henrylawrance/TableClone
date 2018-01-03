@@ -1,6 +1,6 @@
 Import-Module ./modules/invoke-oracmd.psm1
 function Global:Copy-Table {
-<#
+    <#
 .SYNOPSIS
     Clone a single table from Banner to a MSSQL server. Will create table if necessary with structure from Oracle. 
     Performs full refresh of data. 
@@ -24,78 +24,82 @@ function Global:Copy-Table {
 #>
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)][String] $SourceTableName,
-        [parameter(Mandatory=$true)][String] $DestinationTableName,
-        [parameter(Mandatory=$false)][String] $DestinationDatabaseName = "OUDATA",
-        [parameter(Mandatory=$false)][String] $DestinationServerName = "ocsql2014",
-        [parameter(Mandatory=$false)][Switch] $OverwriteExisting = $false,
-        [parameter(Mandatory=$false)][Switch] $RunOutput = $false,
-        [parameter(Mandatory=$false)][String] $OutputFile = ".\output.sql",
-        [parameter(Mandatory=$false)][Int] $RowLimit
+        [parameter(Mandatory = $true)][String] $SourceTableName,
+        [parameter(Mandatory = $true)][String] $DestinationTableName,
+        [parameter(Mandatory = $false)][String] $DestinationDatabaseName = "OUDATA",
+        [parameter(Mandatory = $false)][String] $DestinationServerName = "ocsql2014",
+        [parameter(Mandatory = $false)][Switch] $OverwriteExisting = $false,
+        [parameter(Mandatory = $false)][Switch] $RunOutput = $false,
+        [parameter(Mandatory = $false)][String] $OutputFile = ".\output.sql",
+        [parameter(Mandatory = $false)][Int] $RowLimit
 
     )
-    if(Test-Path $OutputFile) {
+    if (Test-Path $OutputFile) {
         Remove-Item $OutputFile
     }
     $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -Prod -OutputDataSet).Tables
-    if($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
-    if($RowLimit) {
+    if ($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
+    if ($RowLimit) {
         $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= $RowLimit" -Prod -OutputDataSet
-    } else {
+    }
+    else {
         $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName)" -Prod -OutputDataSet
     }
     $TableCheck = Invoke-Sqlcmd -Query "select * from sys.tables where name = '$($DestinationTableName)'" -ServerInstance $DestinationServerName -Database $DestinationDatabaseName
-    if($TableCheck.name.count -eq 0) { 
+    if ($TableCheck.name.count -eq 0) { 
         Write-Verbose "CREATE TABLE [dbo].[$DestinationTableName]" 
         $CreateQuery = "CREATE TABLE [dbo].[$DestinationTableName](`n"
-        Foreach($Column in $Columns) {
-            $data_type = switch($Column.DATA_TYPE) {
+        Foreach ($Column in $Columns) {
+            $data_type = switch ($Column.DATA_TYPE) {
                 "NUMBER" { "VARCHAR" }
                 "VARCHAR2" { "VARCHAR" }
                 "DATE" { "VARCHAR" }
                 default { $Column.DATA_TYPE }
             }
-            $data_length = switch($Column.DATA_TYPE) {
+            $data_length = switch ($Column.DATA_TYPE) {
                 "DATE" { 50 }
                 default { $Column.DATA_LENGTH }
             }
-            $null_type = switch($Column.NULLABLE) {
+            $null_type = switch ($Column.NULLABLE) {
                 "N" { "NOT NULL" }
                 default { "NULL" }
             }
 
             $CreateQuery += "`t[$($Column.COLUMN_NAME)] [$($data_type)] ($($data_length)) $null_type"
-            if(([array]::IndexOf($Columns.COLUMN_NAME, $Column.COLUMN_NAME))+1 -lt $Columns.COLUMN_NAME.Count) {
+            if (([array]::IndexOf($Columns.COLUMN_NAME, $Column.COLUMN_NAME)) + 1 -lt $Columns.COLUMN_NAME.Count) {
                 $CreateQuery += ",`n"
-            } else {
+            }
+            else {
                 $CreateQuery += "`n"
             }
         }
         $CreateQuery += ")"
 
         $CreateQuery | out-file -enc ascii $OutputFile -Append
-    } else {
-        if($OverwriteExisting.IsPresent) {
+    }
+    else {
+        if ($OverwriteExisting.IsPresent) {
             Write-Verbose "TRUNCATE TABLE [dbo].[$DestinationTableName]"
             $DeleteQuery = "TRUNCATE TABLE [dbo].[$DestinationTableName]"
             $DeleteQuery | out-file -enc ascii $OutputFile -Append
-        } else {
+        }
+        else {
             Write-Warning "Table already exists. Use -OverwriteExisting switch to override"; Return
         }
     }
 
     Write-Verbose "GENERATING INSERTS INTO [dbo].[$DestinationTableName]"
-    ForEach($Line in $OraData.Tables) {
+    ForEach ($Line in $OraData.Tables) {
         $InsertQuery = "INSERT INTO [dbo].[$DestinationTableName] ("
         $InsertQuery += $Columns.COLUMN_NAME -join ","
         $InsertQuery += ")`n`tVALUES ("
-        foreach($Column_Name in $Columns.COLUMN_NAME) {
-            $value = switch($($Line[$Column_Name]).GetType().Name) {
-                "String" { $($Line[$Column_Name]).replace("'","''") }
+        foreach ($Column_Name in $Columns.COLUMN_NAME) {
+            $value = switch ($($Line[$Column_Name]).GetType().Name) {
+                "String" { $($Line[$Column_Name]).replace("'", "''") }
                 default { $Line[$Column_Name] }
             }
             $InsertQuery += "`'$($value)`'"
-            if(([array]::IndexOf($Columns.COLUMN_NAME, $Column_Name))+1 -lt $Columns.COLUMN_NAME.Count) {
+            if (([array]::IndexOf($Columns.COLUMN_NAME, $Column_Name)) + 1 -lt $Columns.COLUMN_NAME.Count) {
                 $InsertQuery += ","
             }
         }
@@ -104,10 +108,11 @@ function Global:Copy-Table {
         
     }
 
-    switch($RunOutput.IsPresent) {
+    switch ($RunOutput.IsPresent) {
         $true {
             Write-Verbose "EXECUTING $OutputFile on $DestinationServerName" 
-            Invoke-Sqlcmd -InputFile $OutputFile -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append }
+            Invoke-Sqlcmd -InputFile $OutputFile -ServerInstance $DestinationServerName -Database $DestinationDatabaseName | out-file -FilePath .\log.rpt -Append 
+        }
     }
     
 }
