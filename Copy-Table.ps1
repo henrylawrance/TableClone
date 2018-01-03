@@ -90,12 +90,11 @@ function Global:Copy-Table {
         $InsertQuery += $Columns.COLUMN_NAME -join ","
         $InsertQuery += ")`n`tVALUES ("
         foreach($Column_Name in $Columns.COLUMN_NAME) {
-            $value = $Line[$Column_Name]
-            $b_value = switch($value.GetType().Name) {
-                "String" { $value.replace("'","''") }
-                default { $value }
+            $value = switch($($Line[$Column_Name]).GetType().Name) {
+                "String" { $($Line[$Column_Name]).replace("'","''") }
+                default { $Line[$Column_Name] }
             }
-            $InsertQuery += "`'$b_value`'"
+            $InsertQuery += "`'$value`'"
             if(([array]::IndexOf($Columns.COLUMN_NAME, $Column_Name))+1 -lt $Columns.COLUMN_NAME.Count) {
                 $InsertQuery += ","
             }
