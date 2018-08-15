@@ -1,2 +1,3 @@
 *.sql
 *.rpt
+private/*
