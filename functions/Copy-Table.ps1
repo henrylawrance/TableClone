@@ -1,5 +1,4 @@
-
-function Global:Copy-Table {
+function Copy-Table {
     <#
 .SYNOPSIS
     Clone a single table from Banner to a MSSQL server. Will create table if necessary with structure from Oracle. 
@@ -37,27 +36,22 @@ function Global:Copy-Table {
         [parameter(Mandatory = $false)][Int] $RowLimit
 
     )
-    # Load Invoke-Oracmd if not already loaded
-    if(!((Get-Module).Name -contains "invoke-oracmd")) {
-        Write-Verbose "LOADING Invoke-Oracmd"
-        Import-Module ./modules/invoke-oracmd.psm1
-    }
     # Remove old Output File (include the date in the output name if you want to save these, see example 3)
     if (Test-Path $OutputFile) {
         Write-Verbose "REMOVING OLD $OutputFile"
         Remove-Item $OutputFile
     }
     # Get Table Info from Oracle
-    $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -Prod -OutputDataSet).Tables
+    $Columns = (Invoke-Oracmd -Query "select COLUMN_NAME,DATA_TYPE,DATA_LENGTH,NULLABLE from all_tab_columns where table_name = '$($SourceTableName)'" -OutputDataSet -ServerAddress 205.133.226.84 -ServiceName PROD.ottu.edu -Cred $Oracle_Cred).Tables
     # Verify Table Exists in Banner
     if ($Columns.COLUMN_NAME.count -eq 0) { Write-Warning "SourceTableName does not exist in Oracle (Check Capitalization)"; Return }
     # Allow limiting of Rows for testing
     if ($RowLimit) {
         Write-Warning "ROWS LIMITED TO $RowLimit"
-        $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= $RowLimit" -Prod -OutputDataSet
+        $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName) where rownum <= $RowLimit" -OutputDataSet -ServerAddress 205.133.226.84 -ServiceName PROD.ottu.edu -Cred $Oracle_Cred
     }
     else {
-        $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName)" -Prod -OutputDataSet
+        $OraData = Invoke-Oracmd -Query "select * from $($SourceTableName)" -OutputDataSet -ServerAddress 205.133.226.84 -ServiceName PROD.ottu.edu -Cred $Oracle_Cred
     }
     # Check if table exists in SQL
     $TableCheck = Invoke-Sqlcmd -Query "select * from sys.tables where name = '$($DestinationTableName)'" -ServerInstance $DestinationServerName -Database $DestinationDatabaseName
