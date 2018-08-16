@@ -27,10 +27,10 @@ function Copy-Table {
     Param(
         [parameter(Mandatory)][String] $SourceTableName,
         [parameter(Mandatory)][String] $DestinationTableName,
-        [parameter()][String] $DestinationDatabaseName = "OUDATA",
-        [parameter()][String] $DestinationServerName = "ocsql2014",
-        [parameter()][Switch] $OverwriteExisting = $false,
-        [parameter()][Switch] $RunOutput = $false,
+        [parameter(Mandatory)][String] $DestinationDatabaseName,
+        [parameter(Mandatory)][String] $DestinationServerName,
+        [parameter()][Switch] $OverwriteExisting,
+        [parameter()][Switch] $RunOutput,
         [parameter()][String] $OutputFile = ".\output.sql",
         [parameter()][String] $LogFile = ".\log.rpt",
         [parameter()][Int] $RowLimit
