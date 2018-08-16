@@ -1,3 +1,4 @@
 *.sql
 *.rpt
 private/*
+gzradus_clone.ps1
