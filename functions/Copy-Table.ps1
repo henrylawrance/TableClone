@@ -25,15 +25,15 @@ function Copy-Table {
 #>
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory = $true)][String] $SourceTableName,
-        [parameter(Mandatory = $true)][String] $DestinationTableName,
-        [parameter(Mandatory = $false)][String] $DestinationDatabaseName = "OUDATA",
-        [parameter(Mandatory = $false)][String] $DestinationServerName = "ocsql2014",
-        [parameter(Mandatory = $false)][Switch] $OverwriteExisting = $false,
-        [parameter(Mandatory = $false)][Switch] $RunOutput = $false,
-        [parameter(Mandatory = $false)][String] $OutputFile = ".\output.sql",
-        [parameter(Mandatory = $false)][String] $LogFile = ".\log.rpt",
-        [parameter(Mandatory = $false)][Int] $RowLimit
+        [parameter(Mandatory)][String] $SourceTableName,
+        [parameter(Mandatory)][String] $DestinationTableName,
+        [parameter()][String] $DestinationDatabaseName = "OUDATA",
+        [parameter()][String] $DestinationServerName = "ocsql2014",
+        [parameter()][Switch] $OverwriteExisting = $false,
+        [parameter()][Switch] $RunOutput = $false,
+        [parameter()][String] $OutputFile = ".\output.sql",
+        [parameter()][String] $LogFile = ".\log.rpt",
+        [parameter()][Int] $RowLimit
 
     )
     # Remove old Output File (include the date in the output name if you want to save these, see example 3)
