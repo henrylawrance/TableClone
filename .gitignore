@@ -1,4 +1,5 @@
 *.sql
 *.rpt
+*.xml
 private/*
-gzradus_clone.ps1
+scheduled_clones.ps1
